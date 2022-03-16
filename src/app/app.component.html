@@ -1,5 +1,5 @@
 <div>
-  <canvas #canvas width="600" height="600" (mousemove)="mouseMoved($event)"></canvas>
+  <canvas #canvas width="600" height="600" (mousemove)="mouseMoved($event)" (mouseleave)="mouseLeft($event)" (click)="mouseClicked($event)"></canvas>
 </div>
 
 <router-outlet></router-outlet>
