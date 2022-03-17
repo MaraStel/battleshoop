@@ -16,16 +16,32 @@ export class AppComponent implements OnInit {
 
   private bw = 0;
   private bh = 0;
+  private rows = 10;
+  private cols = 10;
 
-  private grid: number[][] = new Array(10)
+  private col = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'];
+
+  private grid: string[][] = new Array(this.rows)
                               .fill(0)
                               .map(() => 
-                                new Array(10).fill(0)
+                                new Array(this.cols).fill("fog")
   );
+
+  private fleet = [
+
+    { name: "cv", size: 5, count: 1 },
+    { name: "bb", size: 4, count: 1},
+    { name: "cg", size: 3, count: 1 },
+    { name: "ss", size: 3, count: 1 },
+    { name: "dd", size: 2, count: 1 }
+
+  ]
   
   title = 'battleshoop';
 
   ngOnInit() {
+
+    this.setupFleet();
 
     if (this.canvas){
 
@@ -35,6 +51,7 @@ export class AppComponent implements OnInit {
  
       this.redrawGrid();
     }
+    
   }
   
   ngOnChange(){
@@ -42,8 +59,6 @@ export class AppComponent implements OnInit {
   }
 
   mouseMoved(event: MouseEvent) {
-
-    const col = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']
     
     if (this.canvas){
       
@@ -53,7 +68,7 @@ export class AppComponent implements OnInit {
         this.redrawGrid();
         this.ctx.strokeStyle = 'red';
         this.ctx.beginPath();
-        this.ctx.rect(x*this.bw/10+2, y*this.bh/10+2, this.bw/10-3, this.bh/10-3);
+        this.ctx.rect(x*this.bw/this.cols+2, y*this.bh/this.rows+2, this.bw/this.cols-3, this.bh/this.rows-3);
         this.ctx.stroke();
       }
     }
@@ -66,13 +81,76 @@ export class AppComponent implements OnInit {
   mouseClicked(event: MouseEvent){
     
     let [x, y] = this.getGrid(event.offsetX, event.offsetY);
-    this.grid[x][y]=1;
+    if(this.grid[x][y]==="fog"){
+      this.grid[x][y]="sea";
+    }else{
+      this.grid[x][y]="hit";
+    }
+    this.redrawGrid();
+  }
+
+  setupFleet(){
+    let placed:boolean, hor:boolean, clear:boolean;
+    let x:number, y:number;
+    console.log(this.fleet.length);
+    this.fleet.forEach(ship => {
+      for(let cnt=0; cnt< ship.count; cnt++){
+        placed = false;
+        /*
+         This technically has the potential to deadlock but at 5 boats and a 10x10 grid it usually retries like 0-2 times total.
+         @TODO: Make sure this terminates! 
+        */
+        do{
+          clear = true;
+
+          hor = (Math.random()<0.5);
+
+          if(hor){
+            x = Math.floor(Math.random() * (this.cols - ship.size));
+            y = Math.floor(Math.random() * this.rows);
+            for(let i = x; i < x+ship.size; i++){
+              if(this.grid[i][y]!="fog"){
+                clear = false;
+                break
+              }
+            }
+            if(clear){
+              for(let i = x; i < x+ship.size; i++){
+                this.grid[i][y] = ship.name;
+              }
+              placed = true;
+              console.log("Placed "+ship.name+" horizontally");
+            }
+          }else{
+            x = Math.floor(Math.random() * this.cols);
+            y = Math.floor(Math.random() * (this.rows - ship.size));
+            for(let i = y; i < y+ship.size; i++){
+              if(this.grid[x][i]!="fog"){
+                clear = false;
+                break
+              }
+            }
+            if(clear){
+              for(let i = y; i < y+ship.size; i++){
+                this.grid[x][i] = ship.name;
+              }
+              placed = true;
+              console.log("Placed "+ship.name+" vertically");
+            }
+          }
+          if(!placed){
+            console.log("fail");
+          }
+        }while(!placed);
+      }
+    });
     console.log(this.grid);
+
   }
 
   getGrid(offsetX: number, offsetY: number): [number, number]{
-    let x = Math.min(Math.floor(offsetX*10/this.bw), 9);
-    let y = Math.min(Math.floor(offsetY*10/this.bh), 9);
+    let x = Math.min(Math.floor(offsetX*this.cols/this.bw), this.cols-1);
+    let y = Math.min(Math.floor(offsetY*this.cols/this.bh), this.rows-1);
     return [x, y];
   }
 
@@ -83,28 +161,43 @@ export class AppComponent implements OnInit {
       this.ctx.clearRect(0, 0, this.bw, this.bh);
       this.ctx.beginPath();
 
-      for (var x = 0; x <= this.bw; x += (this.bw/10)) {
+      for (var x = 0; x <= this.bw; x += (this.bw/this.cols)) {
         this.ctx.moveTo(0.5 + x + p, p);
         this.ctx.lineTo(0.5 + x + p, this.bh + p);
       }
 
-      for (var x = 0; x <= this.bh; x += (this.bh/10)) {
+      for (var x = 0; x <= this.bh; x += (this.bh/this.rows)) {
         this.ctx.moveTo(p, 0.5 + x + p);
         this.ctx.lineTo(this.bw + p, 0.5 + x + p);
       }
       this.ctx.strokeStyle = "black";
       this.ctx.stroke();
 
-      for(let i=0; i<10;i++){
-        for(let j=0; j<10; j++){
-          if(this.grid[i][j]===1){
+      for(let i=0; i<this.rows;i++){
+        for(let j=0; j<this.cols; j++){
+          if(this.grid[i][j]==="sea"){
             this.ctx.fillStyle = 'blue';
-          }else{
+          }else if(this.grid[i][j]==="fog"){
             this.ctx.fillStyle = 'lightblue';
+          }else if(this.grid[i][j]==="hit"){
+            this.ctx.fillStyle = 'red';
+          }else {
+            this.ctx.fillStyle = 'purple';
           }
-        this.ctx.fillRect(i*this.bw/10+2, j*this.bh/10+2, this.bw/10-3, this.bh/10-3);
+        this.ctx.fillRect(i*this.bw/this.cols+2, j*this.bh/this.rows+2, this.bw/this.cols-3, this.bh/this.rows-3);
         }
       }
     }  
+  }
+
+  reload(event: MouseEvent){
+    this.grid = new Array(this.rows)
+                  .fill(0)
+                  .map(() => 
+                    new Array(this.cols).fill("fog")
+    );
+    console.log(this.grid);
+    this.setupFleet();
+    this.redrawGrid();
   }
 }
