@@ -1,6 +1,11 @@
 <div>
   <canvas #canvas width="600" height="600" (mousemove)="mouseMoved($event)" (mouseleave)="mouseLeft($event)" (click)="mouseClicked($event)"></canvas>
 </div>
+<div class="list-container">
+  <div tabindex="1" #actionLog *ngFor="let action of actions">
+    <span>{{ action }}</span>
+  </div>
+</div>
 <div>
   <button #button (click)="reload($event)">Reload</button>
 </div>

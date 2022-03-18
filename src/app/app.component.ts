@@ -1,5 +1,4 @@
-import { Component, ViewChild, ElementRef, OnInit, OnChanges } from '@angular/core';
-
+import { Component, ViewChild, ElementRef, OnInit, OnChanges, QueryList, ViewChildren } from '@angular/core';
 
 @Component({
   selector: 'app-root',
@@ -11,6 +10,9 @@ export class AppComponent implements OnInit {
   
   @ViewChild('canvas', { static: true })
   canvas!: ElementRef<HTMLCanvasElement>;
+  @ViewChildren("actionLog")
+  actionLog!: QueryList<ElementRef>;
+  
   
   private ctx!: CanvasRenderingContext2D | null;
 
@@ -37,6 +39,8 @@ export class AppComponent implements OnInit {
 
   ]
   
+  actions: string[] = new Array;
+
   title = 'battleshoop';
 
   ngOnInit() {
@@ -51,7 +55,16 @@ export class AppComponent implements OnInit {
  
       this.redrawGrid();
     }
-    
+  }
+
+  ngAfterViewInit() {
+    if(this.actionLog){
+      this.actionLog.changes.subscribe(() => {
+        if (this.actionLog && this.actionLog.last) {
+          this.actionLog.last.nativeElement.focus();
+        }
+      });
+    }  
   }
   
   ngOnChange(){
@@ -83,7 +96,9 @@ export class AppComponent implements OnInit {
     let [x, y] = this.getGrid(event.offsetX, event.offsetY);
     if(this.grid[x][y]==="fog"){
       this.grid[x][y]="sea";
+      this.actions.push(this.col[x]+(y+1)+" miss!");
     }else{
+      this.actions.push(this.col[x]+(y+1)+" "+this.grid[x][y]+" hit!");
       this.grid[x][y]="hit";
     }
     this.redrawGrid();
@@ -199,5 +214,6 @@ export class AppComponent implements OnInit {
     console.log(this.grid);
     this.setupFleet();
     this.redrawGrid();
+    this.actions = new Array;
   }
 }
