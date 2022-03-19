@@ -23,10 +23,12 @@ export class AppComponent implements OnInit {
 
   private col = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'];
 
-  private grid: string[][] = new Array(this.rows)
+  private grid: Cell[][] = new Array(this.rows)
                               .fill(0)
                               .map(() => 
-                                new Array(this.cols).fill("fog")
+                                new Array(this.cols)
+                                .fill(0)
+                                .map(() => new Cell)
   );
 
   private fleet = [
@@ -94,13 +96,15 @@ export class AppComponent implements OnInit {
   mouseClicked(event: MouseEvent){
     
     let [x, y] = this.getGrid(event.offsetX, event.offsetY);
-    if(this.grid[x][y]==="fog"){
-      this.grid[x][y]="sea";
-      this.actions.push(this.col[x]+(y+1)+" miss!");
-    }else{
-      this.actions.push(this.col[x]+(y+1)+" "+this.grid[x][y]+" hit!");
-      this.grid[x][y]="hit";
+    if(!this.grid[x][y].revealed){
+      this.grid[x][y].revealed=true;
+      if(this.grid[x][y].content==="sea"){
+        this.actions.push(this.col[x]+(y+1)+" miss!");
+      }else{
+        this.actions.push(this.col[x]+(y+1)+" "+this.grid[x][y].content+" hit!");
+      }
     }
+    
     this.redrawGrid();
   }
 
@@ -124,33 +128,35 @@ export class AppComponent implements OnInit {
             x = Math.floor(Math.random() * (this.cols - ship.size));
             y = Math.floor(Math.random() * this.rows);
             for(let i = x; i < x+ship.size; i++){
-              if(this.grid[i][y]!="fog"){
+              if(this.grid[i][y].content!="sea"){
                 clear = false;
                 break
               }
             }
             if(clear){
               for(let i = x; i < x+ship.size; i++){
-                this.grid[i][y] = ship.name;
+                this.grid[i][y].content = ship.name;
+                console.log("Placed "+ship.name+" horizontally");
               }
               placed = true;
-              console.log("Placed "+ship.name+" horizontally");
+              
             }
           }else{
             x = Math.floor(Math.random() * this.cols);
             y = Math.floor(Math.random() * (this.rows - ship.size));
             for(let i = y; i < y+ship.size; i++){
-              if(this.grid[x][i]!="fog"){
+              if(this.grid[x][i].content!="sea"){
                 clear = false;
                 break
               }
             }
             if(clear){
               for(let i = y; i < y+ship.size; i++){
-                this.grid[x][i] = ship.name;
+                this.grid[x][i].content = ship.name;
+                console.log("Placed "+ship.name+" vertically");
               }
               placed = true;
-              console.log("Placed "+ship.name+" vertically");
+              
             }
           }
           if(!placed){
@@ -159,6 +165,7 @@ export class AppComponent implements OnInit {
         }while(!placed);
       }
     });
+  
     console.log(this.grid);
 
   }
@@ -190,15 +197,15 @@ export class AppComponent implements OnInit {
 
       for(let i=0; i<this.rows;i++){
         for(let j=0; j<this.cols; j++){
-          if(this.grid[i][j]==="sea"){
-            this.ctx.fillStyle = 'blue';
-          }else if(this.grid[i][j]==="fog"){
+          if(!this.grid[i][j].revealed){
             this.ctx.fillStyle = 'lightblue';
-          }else if(this.grid[i][j]==="hit"){
-            this.ctx.fillStyle = 'red';
-          }else {
-            this.ctx.fillStyle = 'purple';
-          }
+          }else{
+            if(this.grid[i][j].content==="sea"){
+              this.ctx.fillStyle = 'blue';
+            }else{
+              this.ctx.fillStyle = 'red';
+            }
+          }  
         this.ctx.fillRect(i*this.bw/this.cols+2, j*this.bh/this.rows+2, this.bw/this.cols-3, this.bh/this.rows-3);
         }
       }
@@ -209,11 +216,23 @@ export class AppComponent implements OnInit {
     this.grid = new Array(this.rows)
                   .fill(0)
                   .map(() => 
-                    new Array(this.cols).fill("fog")
-    );
+                    new Array(this.cols)
+                      .fill(0)
+                      .map(() => new Cell)
+);
     console.log(this.grid);
     this.setupFleet();
     this.redrawGrid();
     this.actions = new Array;
+  }
+}
+
+class Cell{
+  public revealed: boolean;
+  public content: string;
+
+  constructor(){
+    this.revealed = false;
+    this.content = "sea";
   }
 }
