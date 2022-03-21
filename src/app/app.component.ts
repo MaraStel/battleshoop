@@ -30,17 +30,19 @@ export class AppComponent implements OnInit {
                                 .fill(0)
                                 .map(() => new Cell)
   );
-
+  
   private fleet = [
 
     { name: "cv", size: 5, count: 1 },
-    { name: "bb", size: 4, count: 1},
+    { name: "bb", size: 4, count: 1 },
     { name: "cg", size: 3, count: 1 },
     { name: "ss", size: 3, count: 1 },
     { name: "dd", size: 2, count: 1 }
 
   ]
   
+  private fleetHealth = new Map<string, number>();
+ 
   actions: string[] = new Array;
 
   title = 'battleshoop';
@@ -102,6 +104,20 @@ export class AppComponent implements OnInit {
         this.actions.push(this.col[x]+(y+1)+" miss!");
       }else{
         this.actions.push(this.col[x]+(y+1)+" "+this.grid[x][y].content+" hit!");
+        let hp = this.fleetHealth.get(this.grid[x][y].content);
+        if(hp){
+          hp--;
+          if(hp > 0){
+            this.fleetHealth.set(this.grid[x][y].content, hp);
+          }else{
+            this.fleetHealth.delete(this.grid[x][y].content);
+            this.actions.push(this.grid[x][y].content + " sunk!");
+          }
+        }
+        if(this.fleetHealth.size == 0){
+          this.actions.push("Fleet sunk!");
+        }
+        console.log(this.fleetHealth);
       }
     }
     
@@ -111,7 +127,6 @@ export class AppComponent implements OnInit {
   setupFleet(){
     let placed:boolean, hor:boolean, clear:boolean;
     let x:number, y:number;
-    console.log(this.fleet.length);
     this.fleet.forEach(ship => {
       for(let cnt=0; cnt< ship.count; cnt++){
         placed = false;
@@ -135,7 +150,7 @@ export class AppComponent implements OnInit {
             }
             if(clear){
               for(let i = x; i < x+ship.size; i++){
-                this.grid[i][y].content = ship.name;
+                this.grid[i][y].content = ship.name + cnt;
                 console.log("Placed "+ship.name+" horizontally");
               }
               placed = true;
@@ -152,21 +167,22 @@ export class AppComponent implements OnInit {
             }
             if(clear){
               for(let i = y; i < y+ship.size; i++){
-                this.grid[x][i].content = ship.name;
+                this.grid[x][i].content = ship.name + cnt;
                 console.log("Placed "+ship.name+" vertically");
               }
               placed = true;
               
             }
           }
-          if(!placed){
-            console.log("fail");
+          if(placed){
+            this.fleetHealth.set((ship.name + cnt), ship.size);
           }
         }while(!placed);
       }
     });
   
     console.log(this.grid);
+    console.log(this.fleetHealth);
 
   }
 
