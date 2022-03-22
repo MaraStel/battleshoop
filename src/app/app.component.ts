@@ -8,14 +8,13 @@ import { Component, ViewChild, ElementRef, OnInit, OnChanges, QueryList, ViewChi
 
 export class AppComponent implements OnInit {
   
-  @ViewChild('canvas', { static: true })
-  canvas!: ElementRef<HTMLCanvasElement>;
+  @ViewChild('canvasA', { static: true })
+  canvasA!: ElementRef<HTMLCanvasElement>;
+  @ViewChild('canvasB', { static: true })
+  canvasB!: ElementRef<HTMLCanvasElement>;
   @ViewChildren("actionLog")
   actionLog!: QueryList<ElementRef>;
   
-  
-  private ctx!: CanvasRenderingContext2D | null;
-
   private bw = 0;
   private bh = 0;
   private rows = 10;
@@ -23,13 +22,8 @@ export class AppComponent implements OnInit {
 
   private col = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'];
 
-  private grid: Cell[][] = new Array(this.rows)
-                              .fill(0)
-                              .map(() => 
-                                new Array(this.cols)
-                                .fill(0)
-                                .map(() => new Cell)
-  );
+  private playerA!: Player;
+  private playerB!: Player;
   
   private fleet = [
 
@@ -40,8 +34,10 @@ export class AppComponent implements OnInit {
     { name: "dd", size: 2, count: 1 }
 
   ]
+
   
-  private fleetHealth = new Map<string, number>();
+    //let ctx = canvas.nativeElement.getContext('2d');
+   
  
   actions: string[] = new Array;
 
@@ -49,15 +45,23 @@ export class AppComponent implements OnInit {
 
   ngOnInit() {
 
-    this.setupFleet();
-
-    if (this.canvas){
-
-      this.ctx = this.canvas.nativeElement.getContext('2d');
-      this.bw = this.canvas.nativeElement.width;
-      this.bh = this.canvas.nativeElement.height;
- 
-      this.redrawGrid();
+    if (this.canvasA){
+      let ctx = this.canvasA.nativeElement.getContext('2d');
+      if(ctx){
+        this.playerA = new Player(this.rows, this.cols, ctx, false);
+        this.bw = this.canvasA.nativeElement.width;
+        this.bh = this.canvasA.nativeElement.height;
+        this.setupFleet(this.playerA);
+        this.redrawGrid(this.playerA);
+      }
+    }
+    if (this.canvasB){
+      let ctx = this.canvasB.nativeElement.getContext('2d');
+      if(ctx){
+        this.playerB = new Player(this.rows, this.cols, ctx, true);
+        this.setupFleet(this.playerB);
+        this.redrawGrid(this.playerB);
+      }
     }
   }
 
@@ -77,54 +81,50 @@ export class AppComponent implements OnInit {
 
   mouseMoved(event: MouseEvent) {
     
-    if (this.canvas){
+    if (this.canvasA){
       
       let [x, y] = this.getGrid(event.offsetX, event.offsetY);
 
-      if (this.ctx){
-        this.redrawGrid();
-        this.ctx.strokeStyle = 'red';
-        this.ctx.beginPath();
-        this.ctx.rect(x*this.bw/this.cols+2, y*this.bh/this.rows+2, this.bw/this.cols-3, this.bh/this.rows-3);
-        this.ctx.stroke();
+      if (this.playerA.ctx){
+        this.redrawGrid(this.playerA);
+        this.playerA.ctx.strokeStyle = 'red';
+        this.playerA.ctx.beginPath();
+        this.playerA.ctx.rect(x*this.bw/this.cols+2, y*this.bh/this.rows+2, this.bw/this.cols-3, this.bh/this.rows-3);
+        this.playerA.ctx.stroke();
       }
     }
-  }
-
-  mouseLeft(event: MouseEvent){
-    this.redrawGrid();
   }
 
   mouseClicked(event: MouseEvent){
     
     let [x, y] = this.getGrid(event.offsetX, event.offsetY);
-    if(!this.grid[x][y].revealed){
-      this.grid[x][y].revealed=true;
-      if(this.grid[x][y].content==="sea"){
+    if(!this.playerA.grid[x][y].revealed){
+      this.playerA.grid[x][y].revealed=true;
+      if(this.playerA.grid[x][y].content==="sea"){
         this.actions.push(this.col[x]+(y+1)+" miss!");
       }else{
-        this.actions.push(this.col[x]+(y+1)+" "+this.grid[x][y].content+" hit!");
-        let hp = this.fleetHealth.get(this.grid[x][y].content);
+        this.actions.push(this.col[x]+(y+1)+" "+this.playerA.grid[x][y].content+" hit!");
+        let hp = this.playerA.fleetHealth.get(this.playerA.grid[x][y].content);
         if(hp){
           hp--;
           if(hp > 0){
-            this.fleetHealth.set(this.grid[x][y].content, hp);
+            this.playerA.fleetHealth.set(this.playerA.grid[x][y].content, hp);
           }else{
-            this.fleetHealth.delete(this.grid[x][y].content);
-            this.actions.push(this.grid[x][y].content + " sunk!");
+            this.playerA.fleetHealth.delete(this.playerA.grid[x][y].content);
+            this.actions.push(this.playerA.grid[x][y].content + " sunk!");
           }
         }
-        if(this.fleetHealth.size == 0){
+        if(this.playerA.fleetHealth.size == 0){
           this.actions.push("Fleet sunk!");
         }
-        console.log(this.fleetHealth);
+        console.log(this.playerA.fleetHealth);
       }
     }
     
-    this.redrawGrid();
+    this.redrawGrid(this.playerA);
   }
 
-  setupFleet(){
+  setupFleet(player: Player){
     let placed:boolean, hor:boolean, clear:boolean;
     let x:number, y:number;
     this.fleet.forEach(ship => {
@@ -143,14 +143,14 @@ export class AppComponent implements OnInit {
             x = Math.floor(Math.random() * (this.cols - ship.size));
             y = Math.floor(Math.random() * this.rows);
             for(let i = x; i < x+ship.size; i++){
-              if(this.grid[i][y].content!="sea"){
+              if(player.grid[i][y].content!="sea"){
                 clear = false;
                 break
               }
             }
             if(clear){
               for(let i = x; i < x+ship.size; i++){
-                this.grid[i][y].content = ship.name + cnt;
+                player.grid[i][y].content = ship.name + cnt;
                 console.log("Placed "+ship.name+" horizontally");
               }
               placed = true;
@@ -160,14 +160,14 @@ export class AppComponent implements OnInit {
             x = Math.floor(Math.random() * this.cols);
             y = Math.floor(Math.random() * (this.rows - ship.size));
             for(let i = y; i < y+ship.size; i++){
-              if(this.grid[x][i].content!="sea"){
+              if(player.grid[x][i].content!="sea"){
                 clear = false;
                 break
               }
             }
             if(clear){
               for(let i = y; i < y+ship.size; i++){
-                this.grid[x][i].content = ship.name + cnt;
+                player.grid[x][i].content = ship.name + cnt;
                 console.log("Placed "+ship.name+" vertically");
               }
               placed = true;
@@ -175,14 +175,15 @@ export class AppComponent implements OnInit {
             }
           }
           if(placed){
-            this.fleetHealth.set((ship.name + cnt), ship.size);
+            player.fleetHealth.set((ship.name + cnt), ship.size);
           }
         }while(!placed);
       }
     });
   
-    console.log(this.grid);
-    console.log(this.fleetHealth);
+    console.log(player.grid);
+    console.log(player.fleetHealth);
+    return {player};
 
   }
 
@@ -192,53 +193,51 @@ export class AppComponent implements OnInit {
     return [x, y];
   }
 
-  redrawGrid(){
+  redrawGrid(player: Player){
     // Padding
     const p = 0;
-    if (this.ctx){
-      this.ctx.clearRect(0, 0, this.bw, this.bh);
-      this.ctx.beginPath();
+    if (player.ctx){
+      player.ctx.clearRect(0, 0, this.bw, this.bh);
+      player.ctx.beginPath();
 
       for (var x = 0; x <= this.bw; x += (this.bw/this.cols)) {
-        this.ctx.moveTo(0.5 + x + p, p);
-        this.ctx.lineTo(0.5 + x + p, this.bh + p);
+        player.ctx.moveTo(0.5 + x + p, p);
+        player.ctx.lineTo(0.5 + x + p, this.bh + p);
       }
 
       for (var x = 0; x <= this.bh; x += (this.bh/this.rows)) {
-        this.ctx.moveTo(p, 0.5 + x + p);
-        this.ctx.lineTo(this.bw + p, 0.5 + x + p);
+        player.ctx.moveTo(p, 0.5 + x + p);
+        player.ctx.lineTo(this.bw + p, 0.5 + x + p);
       }
-      this.ctx.strokeStyle = "black";
-      this.ctx.stroke();
+      player.ctx.strokeStyle = "black";
+      player.ctx.stroke();
 
       for(let i=0; i<this.rows;i++){
         for(let j=0; j<this.cols; j++){
-          if(!this.grid[i][j].revealed){
-            this.ctx.fillStyle = 'lightblue';
+          if(!player.grid[i][j].revealed && !player.vision){
+            player.ctx.fillStyle = 'lightblue';
           }else{
-            if(this.grid[i][j].content==="sea"){
-              this.ctx.fillStyle = 'blue';
+            if(player.grid[i][j].content==="sea"){
+              player.ctx.fillStyle = 'blue';
             }else{
-              this.ctx.fillStyle = 'red';
+              player.ctx.fillStyle = 'red';
             }
           }  
-        this.ctx.fillRect(i*this.bw/this.cols+2, j*this.bh/this.rows+2, this.bw/this.cols-3, this.bh/this.rows-3);
+          player.ctx.fillRect(i*this.bw/this.cols+2, j*this.bh/this.rows+2, this.bw/this.cols-3, this.bh/this.rows-3);
         }
       }
     }  
   }
 
   reload(event: MouseEvent){
-    this.grid = new Array(this.rows)
-                  .fill(0)
-                  .map(() => 
-                    new Array(this.cols)
-                      .fill(0)
-                      .map(() => new Cell)
-);
-    console.log(this.grid);
-    this.setupFleet();
-    this.redrawGrid();
+    //this.playerA = new Player(this.rows, this.cols, this.canvasA);
+   // this.playerB = new Player(this.rows, this.cols, this.canvasB);
+    console.log(this.playerA.grid);
+    console.log(this.playerB.grid);
+    this.setupFleet(this.playerA);
+    this.redrawGrid(this.playerA);
+    this.setupFleet(this.playerB);
+    this.redrawGrid(this.playerB);
     this.actions = new Array;
   }
 }
@@ -250,5 +249,26 @@ class Cell{
   constructor(){
     this.revealed = false;
     this.content = "sea";
+  }
+}
+
+class Player{
+  public grid: Cell[][];
+  public fleetHealth: Map<string, number>;
+  public ctx: CanvasRenderingContext2D;
+  public vision: boolean;
+
+  constructor(rows: number, cols: number, ctx: CanvasRenderingContext2D, vision: boolean ){
+    this.grid = new Array(rows)
+    .fill(0)
+    .map(() => 
+      new Array(cols)
+      .fill(0)
+      .map(() => new Cell)
+    );
+    this.fleetHealth = new Map<string, number>();
+    this.ctx = ctx;
+    this.vision = vision;
+    
   }
 }
