@@ -1,5 +1,8 @@
-<div>
+<div style="display: inline-block">
   <canvas #canvasA width="600" height="600" (mousemove)="mouseMoved($event)" (click)="mouseClicked($event)"></canvas>
+</div>
+<div style="display: inline-block">
+  <canvas #canvasB width="600" height="600"></canvas>
 </div>
 <div class="list-container">
   <div tabindex="1" #actionLog *ngFor="let action of actions">
@@ -9,7 +12,5 @@
 <div>
   <button #button (click)="reload($event)">Reload</button>
 </div>
-<div>
-  <canvas #canvasB width="600" height="600"></canvas>
-</div>
+
 <router-outlet></router-outlet>
