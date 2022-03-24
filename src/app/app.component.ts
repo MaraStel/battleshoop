@@ -48,7 +48,7 @@ export class AppComponent implements OnInit {
     if (this.canvasA){
       let ctx = this.canvasA.nativeElement.getContext('2d');
       if(ctx){
-        this.playerA = new Player(this.rows, this.cols, ctx, false);
+        this.playerA = new Player(this.rows, this.cols, ctx, false, "P1");
         this.bw = this.canvasA.nativeElement.width;
         this.bh = this.canvasA.nativeElement.height;
         this.setupFleet(this.playerA);
@@ -58,7 +58,7 @@ export class AppComponent implements OnInit {
     if (this.canvasB){
       let ctx = this.canvasB.nativeElement.getContext('2d');
       if(ctx){
-        this.playerB = new Player(this.rows, this.cols, ctx, true);
+        this.playerB = new Player(this.rows, this.cols, ctx, true, "AI");
         this.setupFleet(this.playerB);
         this.redrawGrid(this.playerB);
       }
@@ -99,26 +99,8 @@ export class AppComponent implements OnInit {
     
     let [x, y] = this.getGrid(event.offsetX, event.offsetY);
     if(!this.playerA.grid[x][y].revealed){
-      this.playerA.grid[x][y].revealed=true;
-      if(this.playerA.grid[x][y].content==="sea"){
-        this.actions.push("P1 "+this.col[x]+(y+1)+" miss!");
-      }else{
-        this.actions.push("P1 "+this.col[x]+(y+1)+" "+this.playerA.grid[x][y].content+" hit!");
-        let hp = this.playerA.fleetHealth.get(this.playerA.grid[x][y].content);
-        if(hp){
-          hp--;
-          if(hp > 0){
-            this.playerA.fleetHealth.set(this.playerA.grid[x][y].content, hp);
-          }else{
-            this.playerA.fleetHealth.delete(this.playerA.grid[x][y].content);
-            this.actions.push("P1 "+this.playerA.grid[x][y].content + " sunk!");
-          }
-        }
-        if(this.playerA.fleetHealth.size == 0){
-          this.actions.push("P1 Fleet sunk!");
-        }
-        console.log(this.playerA.fleetHealth);
-      }
+      
+      this.evaluateShot(x, y, this.playerA)
     }
     this.opforTurn();
     this.redrawGrid(this.playerA);
@@ -127,8 +109,8 @@ export class AppComponent implements OnInit {
 
   opforTurn(){
     /*
-    * Some major repition in here and, again, a (lesser?) chance to loop eternally
-    * The second should resolve itself once we use an actual targeting strategy rather than pure random
+    * again, a (lesser?) chance to loop eternally
+    * This should resolve itself once we use an actual targeting strategy rather than pure random
     */
     let x:number, y:number;
     let hit = false;
@@ -136,29 +118,35 @@ export class AppComponent implements OnInit {
       x = Math.floor(Math.random() * this.cols);
       y = Math.floor(Math.random() * this.rows);
       if(!this.playerB.grid[x][y].revealed){
+
         hit = true;
-        this.playerB.grid[x][y].revealed=true;
-        if(this.playerB.grid[x][y].content==="sea"){
-          this.actions.push("P2 "+this.col[x]+(y+1)+" miss!");
-        }else{
-          this.actions.push("P2 "+this.col[x]+(y+1)+" "+this.playerB.grid[x][y].content+" hit!");
-          let hp = this.playerB.fleetHealth.get(this.playerB.grid[x][y].content);
-          if(hp){
-            hp--;
-            if(hp > 0){
-             this.playerB.fleetHealth.set(this.playerB.grid[x][y].content, hp);
-            }else{
-              this.playerB.fleetHealth.delete(this.playerB.grid[x][y].content);
-              this.actions.push("P2 "+this.playerB.grid[x][y].content + " sunk!");
-            }
-          }
-          if(this.playerB.fleetHealth.size == 0){
-            this.actions.push("P2 Fleet sunk!");
-          }
-        }
+        this.evaluateShot(x, y, this.playerB);
+
       }
     }while(!hit)
     console.log(this.playerB.grid);   
+  }
+
+  evaluateShot(x: number, y:number, player: Player){
+    player.grid[x][y].revealed=true;
+    if(player.grid[x][y].content==="sea"){
+      this.actions.push(player.name+": "+this.col[x]+(y+1)+" miss!");
+    }else{
+      this.actions.push(player.name+": "+this.col[x]+(y+1)+" "+player.grid[x][y].content+" hit!");
+      let hp = player.fleetHealth.get(player.grid[x][y].content);
+      if(hp){
+        hp--;
+        if(hp > 0){
+          player.fleetHealth.set(player.grid[x][y].content, hp);
+        }else{
+          player.fleetHealth.delete(player.grid[x][y].content);
+          this.actions.push(player.name+": "+player.grid[x][y].content + " sunk!");
+        }
+      }
+      if(player.fleetHealth.size == 0){
+        this.actions.push(player.name+": Opposing fleet sunk!");
+      }
+    }
   }
 
   setupFleet(player: Player){
@@ -272,8 +260,8 @@ export class AppComponent implements OnInit {
   }
 
   reload(event: MouseEvent){
-    this.playerA = new Player(this.rows, this.cols, this.playerA.ctx, false);
-    this.playerB = new Player(this.rows, this.cols, this.playerB.ctx, false);
+    this.playerA = new Player(this.rows, this.cols, this.playerA.ctx, false, "P1");
+    this.playerB = new Player(this.rows, this.cols, this.playerB.ctx, false, "AI");
     console.log(this.playerA.grid);
     console.log(this.playerB.grid);
     this.setupFleet(this.playerA);
@@ -299,8 +287,9 @@ class Player{
   public fleetHealth: Map<string, number>;
   public ctx: CanvasRenderingContext2D;
   public vision: boolean;
+  public name: string;
 
-  constructor(rows: number, cols: number, ctx: CanvasRenderingContext2D, vision: boolean ){
+  constructor(rows: number, cols: number, ctx: CanvasRenderingContext2D, vision: boolean, name: string ){
     this.grid = new Array(rows)
     .fill(0)
     .map(() => 
@@ -311,6 +300,7 @@ class Player{
     this.fleetHealth = new Map<string, number>();
     this.ctx = ctx;
     this.vision = vision;
+    this.name = name;
     
   }
 }
