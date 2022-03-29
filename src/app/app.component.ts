@@ -1,4 +1,6 @@
-import { Component, ViewChild, ElementRef, OnInit, OnChanges, QueryList, ViewChildren } from '@angular/core';
+import { Component, ViewChild, ElementRef, OnInit, OnChanges, QueryList, ViewChildren, Injectable } from '@angular/core';
+import { Player } from './Player';
+import {MatDialog, MatDialogRef} from '@angular/material/dialog';
 
 @Component({
   selector: 'app-root',
@@ -42,6 +44,8 @@ export class AppComponent implements OnInit {
   actions: string[] = new Array;
 
   title = 'battleshoop';
+
+  constructor(public dialog: MatDialog) {}
 
   ngOnInit() {
 
@@ -145,6 +149,7 @@ export class AppComponent implements OnInit {
       }
       if(player.fleetHealth.size == 0){
         this.actions.push(player.name+": Opposing fleet sunk!");
+        this.openDialog();
       }
     }
   }
@@ -260,7 +265,7 @@ export class AppComponent implements OnInit {
   }
 
   reload(event: MouseEvent){
-    this.playerA = new Player(this.rows, this.cols, this.playerA.ctx, false, "P1");
+    /*this.playerA = new Player(this.rows, this.cols, this.playerA.ctx, false, "P1");
     this.playerB = new Player(this.rows, this.cols, this.playerB.ctx, false, "AI");
     console.log(this.playerA.grid);
     console.log(this.playerB.grid);
@@ -268,39 +273,36 @@ export class AppComponent implements OnInit {
     this.redrawGrid(this.playerA);
     this.setupFleet(this.playerB);
     this.redrawGrid(this.playerB);
-    this.actions = new Array;
+    this.actions = new Array;*/
+    this.openDialog();
+  }
+
+  openDialog(): void {
+    let dialogRef = this.dialog.open(DialogOverviewExampleDialog, {
+      width: '250px',
+     
+    });
+
+    dialogRef.afterClosed().subscribe(() => {
+      console.log('The dialog was closed');
+     
+    });
   }
 }
+@Component({
+  selector: 'app.component.dialog',
+  templateUrl: 'app.component.dialog.html',
+})
 
-class Cell{
-  public revealed: boolean;
-  public content: string;
+export class DialogOverviewExampleDialog {
 
-  constructor(){
-    this.revealed = false;
-    this.content = "sea";
-  }
-}
-
-class Player{
-  public grid: Cell[][];
-  public fleetHealth: Map<string, number>;
-  public ctx: CanvasRenderingContext2D;
-  public vision: boolean;
-  public name: string;
-
-  constructor(rows: number, cols: number, ctx: CanvasRenderingContext2D, vision: boolean, name: string ){
-    this.grid = new Array(rows)
-    .fill(0)
-    .map(() => 
-      new Array(cols)
-      .fill(0)
-      .map(() => new Cell)
-    );
-    this.fleetHealth = new Map<string, number>();
-    this.ctx = ctx;
-    this.vision = vision;
-    this.name = name;
+  constructor(
+    public dialogRef: MatDialogRef<DialogOverviewExampleDialog>,
+    ) { }
+  
     
+  onNoClick(): void {
+    this.dialogRef.close();
   }
+
 }
