@@ -1,6 +1,7 @@
 import { Component, ViewChild, ElementRef, OnInit, OnChanges, QueryList, ViewChildren, Injectable } from '@angular/core';
 import { Player } from './Player';
 import {MatDialog, MatDialogRef} from '@angular/material/dialog';
+import { of } from 'rxjs';
 
 @Component({
   selector: 'app-root',
@@ -27,6 +28,9 @@ export class AppComponent implements OnInit {
   private playerA!: Player;
   private playerB!: Player;
   
+  private preTargets: {x: number, y: number}[] = new Array;
+  private followUpTargets: {x: number, y: number}[] = new Array;
+
   private fleet = [
 
     { name: "cv", size: 5, count: 1 },
@@ -37,10 +41,6 @@ export class AppComponent implements OnInit {
 
   ]
 
-  
-    //let ctx = canvas.nativeElement.getContext('2d');
-   
- 
   actions: string[] = new Array;
 
   title = 'battleshoop';
@@ -67,6 +67,8 @@ export class AppComponent implements OnInit {
         this.redrawGrid(this.playerB);
       }
     }
+
+    this.checkerBoard();
   }
 
   ngAfterViewInit() {
@@ -79,10 +81,6 @@ export class AppComponent implements OnInit {
     }  
   }
   
-  ngOnChange(){
-    console.log("change");
-  }
-
   mouseMoved(event: MouseEvent) {
     
     if (this.canvasA){
@@ -105,33 +103,83 @@ export class AppComponent implements OnInit {
     if(!this.playerA.grid[x][y].revealed){
       
       this.evaluateShot(x, y, this.playerA)
+      this.opforTurn();
     }
-    this.opforTurn();
     this.redrawGrid(this.playerA);
     this.redrawGrid(this.playerB);
   }
 
   opforTurn(){
-    /*
-    * again, a (lesser?) chance to loop eternally
-    * This should resolve itself once we use an actual targeting strategy rather than pure random
-    */
-    let x:number, y:number;
-    let hit = false;
-    do{
-      x = Math.floor(Math.random() * this.cols);
-      y = Math.floor(Math.random() * this.rows);
-      if(!this.playerB.grid[x][y].revealed){
-
-        hit = true;
-        this.evaluateShot(x, y, this.playerB);
-
+    let rand: number;
+    let impact: string;
+    let x: number, y: number;
+    if(this.followUpTargets.length>0){
+      rand = Math.floor(Math.random() * this.followUpTargets.length);
+      x = this.followUpTargets[rand].x;
+      y = this.followUpTargets[rand].y;
+      impact = this.evaluateShot(x, y, this.playerB);
+      this.followUpTargets.splice(rand, 1);
+    }else{
+      rand = Math.floor(Math.random() * this.preTargets.length);
+      x = this.preTargets[rand].x;
+      y = this.preTargets[rand].y;
+      impact = this.evaluateShot(x, y, this.playerB);
+      this.preTargets.splice(rand, 1);
+    }
+    if( impact != "sea"){
+      //x, y-1
+      if(this.isEligible(x, y-1)){
+        this.followUpTargets.push({x: x, y: y-1})
       }
-    }while(!hit)
-    console.log(this.playerB.grid);   
+      //x, y+1
+      if(this.isEligible(x, y+1)){
+        this.followUpTargets.push({x: x, y: y+1})
+      }
+      //x-1, y
+      if(this.isEligible(x-1, y)){
+        this.followUpTargets.push({x: x-1, y: y})
+      }
+      //x+1, y
+      if(this.isEligible(x+1, y)){
+        this.followUpTargets.push({x: x+1, y: y})
+      }
+    }
+    console.log(this.followUpTargets);
   }
 
-  evaluateShot(x: number, y:number, player: Player){
+  isEligible(x:number ,y:number ):boolean{
+    if(0 <= x && x < this.cols && 0 <= y && y < this.rows){
+      if(!this.playerB.grid[x][y].revealed){
+        if(!this.followUpTargets.find(o => {
+        o.x === x && o.y === y})){
+          return true
+        }
+      }
+    }
+    return false
+  }
+
+  /*
+  * Adds alternating coordinates to a pre-selected list for the "random" tagetting mode
+  * This enables the use of the "only check every other space" strategy which guarantees 
+  * *finding* every boat in just 50 turns compared to up to 99 for a fully random approach.
+  */  
+  checkerBoard(){
+    let start = Math.random() < 0.5;
+    let offset = 0;
+    for(let i = 0; i < this.rows; i++){
+      if(start){
+        offset = i%2;
+      }else{
+        offset = (i+1)%2;
+      }
+      for(let j = 0; j < this.cols/2; j++){
+        this.preTargets.push({x: i, y: 2 * j + offset});
+      }
+    }
+  }
+
+  evaluateShot(x: number, y:number, player: Player):string{
     player.grid[x][y].revealed=true;
     if(player.grid[x][y].content==="sea"){
       this.actions.push(player.name+": "+this.col[x]+(y+1)+" miss!");
@@ -152,6 +200,7 @@ export class AppComponent implements OnInit {
         this.openDialog();
       }
     }
+    return player.grid[x][y].content;
   }
 
   setupFleet(player: Player){
@@ -181,7 +230,6 @@ export class AppComponent implements OnInit {
             if(clear){
               for(let i = x; i < x+ship.size; i++){
                 player.grid[i][y].content = ship.name + cnt;
-                console.log("Placed "+ship.name+" horizontally");
               }
               placed = true;
               
@@ -198,7 +246,6 @@ export class AppComponent implements OnInit {
             if(clear){
               for(let i = y; i < y+ship.size; i++){
                 player.grid[x][i].content = ship.name + cnt;
-                console.log("Placed "+ship.name+" vertically");
               }
               placed = true;
               
@@ -210,9 +257,6 @@ export class AppComponent implements OnInit {
         }while(!placed);
       }
     });
-  
-    console.log(player.grid);
-    console.log(player.fleetHealth);
     return {player};
 
   }
@@ -278,7 +322,7 @@ export class AppComponent implements OnInit {
   }
 
   openDialog(): void {
-    let dialogRef = this.dialog.open(DialogOverviewExampleDialog, {
+    let dialogRef = this.dialog.open(EndGameDialog, {
       width: '250px',
      
     });
@@ -294,10 +338,10 @@ export class AppComponent implements OnInit {
   templateUrl: 'app.component.dialog.html',
 })
 
-export class DialogOverviewExampleDialog {
+export class EndGameDialog {
 
   constructor(
-    public dialogRef: MatDialogRef<DialogOverviewExampleDialog>,
+    public dialogRef: MatDialogRef<EndGameDialog>,
     ) { }
   
     
