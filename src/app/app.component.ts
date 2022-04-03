@@ -1,7 +1,8 @@
-import { Component, ViewChild, ElementRef, OnInit, OnChanges, QueryList, ViewChildren, Injectable } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { BrowserModule } from '@angular/platform-browser';
+import { Component, ViewChild, ElementRef, OnInit, QueryList, ViewChildren, Inject } from '@angular/core';
 import { Player } from './Player';
-import {MatDialog, MatDialogRef} from '@angular/material/dialog';
-import { of } from 'rxjs';
+import {MatDialog, MatDialogRef, MAT_DIALOG_DATA} from '@angular/material/dialog';
 
 @Component({
   selector: 'app-root',
@@ -29,7 +30,7 @@ export class AppComponent implements OnInit {
   private playerB!: Player;
   
   private preTargets: {x: number, y: number}[] = new Array;
-  private followUpTargets: {x: number, y: number}[] = new Array;
+  private followUpTargets: {ship: string, x: number, y: number}[] = new Array;
 
   private fleet = [
 
@@ -112,7 +113,8 @@ export class AppComponent implements OnInit {
   opforTurn(){
     let rand: number;
     let impact: string;
-    let x: number, y: number;
+    let x: number, y: number, ships: number;
+    ships = this.playerB.fleetHealth.size;
     if(this.followUpTargets.length>0){
       rand = Math.floor(Math.random() * this.followUpTargets.length);
       x = this.followUpTargets[rand].x;
@@ -127,31 +129,38 @@ export class AppComponent implements OnInit {
       this.preTargets.splice(rand, 1);
     }
     if( impact != "sea"){
-      //x, y-1
-      if(this.isEligible(x, y-1)){
-        this.followUpTargets.push({x: x, y: y-1})
+      if(this.playerB.fleetHealth.size < ships){
+        this.followUpTargets = this.followUpTargets.filter(o => {
+          o.ship != impact
+        })
+      }else {
+        //x, y-1
+        if(this.isEligible(impact, x, y-1)){
+          this.followUpTargets.push({ship: impact, x: x, y: y-1})
+        }
+        //x, y+1
+        if(this.isEligible(impact, x, y+1)){
+          this.followUpTargets.push({ship: impact, x: x, y: y+1})
+        }
+        //x-1, y
+        if(this.isEligible(impact, x-1, y)){
+          this.followUpTargets.push({ship: impact, x: x-1, y: y})
+        }
+        //x+1, y
+        if(this.isEligible(impact, x+1, y)){
+          this.followUpTargets.push({ship: impact, x: x+1, y: y})
+        }
       }
-      //x, y+1
-      if(this.isEligible(x, y+1)){
-        this.followUpTargets.push({x: x, y: y+1})
-      }
-      //x-1, y
-      if(this.isEligible(x-1, y)){
-        this.followUpTargets.push({x: x-1, y: y})
-      }
-      //x+1, y
-      if(this.isEligible(x+1, y)){
-        this.followUpTargets.push({x: x+1, y: y})
-      }
+
     }
     console.log(this.followUpTargets);
   }
 
-  isEligible(x:number ,y:number ):boolean{
+  isEligible(ship: string, x:number ,y:number ):boolean{
     if(0 <= x && x < this.cols && 0 <= y && y < this.rows){
       if(!this.playerB.grid[x][y].revealed){
         if(!this.followUpTargets.find(o => {
-        o.x === x && o.y === y})){
+        o.ship === ship && o.x === x && o.y === y})){
           return true
         }
       }
@@ -197,7 +206,11 @@ export class AppComponent implements OnInit {
       }
       if(player.fleetHealth.size == 0){
         this.actions.push(player.name+": Opposing fleet sunk!");
-        this.openDialog();
+        let victory = false;
+        if(player.name === "P1"){
+          victory = true;
+        }
+        this.openDialog(victory, player.name);
       }
     }
     return player.grid[x][y].content;
@@ -308,23 +321,16 @@ export class AppComponent implements OnInit {
     }  
   }
 
-  reload(event: MouseEvent){
-    /*this.playerA = new Player(this.rows, this.cols, this.playerA.ctx, false, "P1");
-    this.playerB = new Player(this.rows, this.cols, this.playerB.ctx, false, "AI");
-    console.log(this.playerA.grid);
-    console.log(this.playerB.grid);
-    this.setupFleet(this.playerA);
-    this.redrawGrid(this.playerA);
-    this.setupFleet(this.playerB);
-    this.redrawGrid(this.playerB);
-    this.actions = new Array;*/
-    this.openDialog();
+  reload(){
+    this.ngOnInit();
+    this.actions = new Array;
+    this.followUpTargets = new Array;
   }
 
-  openDialog(): void {
+  openDialog(victory: boolean, winner: string): void {
     let dialogRef = this.dialog.open(EndGameDialog, {
       width: '250px',
-     
+      data: { name: winner, victory: victory?"Victory!":"Defeat!"}
     });
 
     dialogRef.afterClosed().subscribe(() => {
@@ -342,7 +348,7 @@ export class EndGameDialog {
 
   constructor(
     public dialogRef: MatDialogRef<EndGameDialog>,
-    ) { }
+    @Inject(MAT_DIALOG_DATA) public data: any) { }
   
     
   onNoClick(): void {
